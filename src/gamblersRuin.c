@@ -8,11 +8,15 @@
 
 
 // Define starting parameters of simulation
-#define ALICE_STARTING 			5		// Starting money for Alice
-#define BOB_STARTING			5		// Starting money for Bob
+#define ALICE_STARTING 			15		// Starting money for Alice
+#define BOB_STARTING			15		// Starting money for Bob
 #define ALICE_WIN_PROBABILITY 	0.5		// Probability that Alice wins a draw
 #define BET_AMOUNT				1 		// Amount of money each person bets at each round
-#define NUM_GAMES 				10000000	// Number of games to play until a player loses
+#define NUM_GAMES 				100000000	// Number of games to play until a player loses
+
+
+// Define simulation parameters
+#define DELTA					1000
 
 
 // Define color commands
@@ -25,12 +29,12 @@ int main()
 {
 	// Display game parameters
 	printf( "Game Parameters:\n"
-			"    Alice Starting: $%i\n"
-			"    Bob Starting:   $%i\n"
-			"    Alice Win Probability: %0.2f\n"
-			"    Bet Amount: $%i\n"
-			"    Number of Games: %i\n\n", 
-			ALICE_STARTING, BOB_STARTING, ALICE_WIN_PROBABILITY, BET_AMOUNT, NUM_GAMES );
+			"    Alice Starting:        $%i\n"
+			"    Bob Starting:          $%i\n"
+			"    Alice Win Probability: %0.2f%%\n"
+			"    Bet Amount:            $%i\n"
+			"    Number of Games:       %i\n\n", 
+			ALICE_STARTING, BOB_STARTING, 100 * ALICE_WIN_PROBABILITY, BET_AMOUNT, NUM_GAMES );
 
 
 	// Get seed for random value. Only updates once per second and is a PRNG
@@ -45,9 +49,9 @@ int main()
 	r = gsl_rng_alloc( T );
 
 
-	// Set amount of money Alice and Bob have
-	int moneyA = ALICE_STARTING;
-	int moneyB = BOB_STARTING;
+	// Track amount of money Alice and Bob have
+	int moneyA;
+	int moneyB;
 
 	// Stores the pool for each round
 	int pool;
@@ -62,6 +66,8 @@ int main()
 	int aliceWin = 0, aliceLose = 0;
 	int bobWin = 0,   bobLose = 0;
 
+	// Track average money remaining
+
 
 	int i;
 	for( i = 0; i < NUM_GAMES; i++ )
@@ -71,6 +77,15 @@ int main()
 
 		// Count how many times it takes for one person to win
 		int round = 0;
+
+		// Keep track of previous round's result
+		int aliceWonLastBet = 0;
+
+		// Set betAmount
+		int betAmount = BET_AMOUNT;
+
+		// Keep track of previous round's betAmount
+		int previousBetAmount;
 
 
 		// Play game until one player has no money left
@@ -84,10 +99,21 @@ int main()
 			int moneyB_start = moneyB;
 
 
-			// Calculate bet amount. If both players have more than the default amount, then use default value.
-			// Otherwise, use the amount of the player who has the least money remaining.
-			int betAmount = ( moneyA >= BET_AMOUNT && moneyB >= BET_AMOUNT ?  BET_AMOUNT : moneyA < moneyB ? moneyA : moneyB );
-			
+			// Set previous bet amount
+			previousBetAmount = betAmount;
+
+
+			// Calculate bet amount for both players
+			betAmount = 
+				// Standard bet amount
+			BET_AMOUNT;
+				// Incrementing bet amount
+			// ( aliceWonLastBet ? previousBetAmount + 1 : BET_AMOUNT );
+
+			// Make sure bet amount isn't more than lowest player's bankroll
+			if( moneyA < betAmount || moneyB < betAmount )
+				betAmount = ( moneyA < moneyB ? moneyA : moneyB );
+
 
 			// Take money from players and put it in the pool
 			moneyA = moneyA - betAmount;
@@ -100,23 +126,39 @@ int main()
 
 
 			// Give money to the winner
-			moneyA = moneyA + ( outcome <= ALICE_WIN_PROBABILITY ? pool : 0 );
-			moneyB = moneyB + ( outcome <= ALICE_WIN_PROBABILITY ? 0 	: pool );
+			if( outcome <= ALICE_WIN_PROBABILITY )
+			{
+				aliceWonLastBet = 1;
+				moneyA = moneyA + pool;
+			}
+			else
+			{
+				aliceWonLastBet = 0;
+				moneyB = moneyB + pool;
+			}
+			// moneyA = moneyA + ( outcome <= ALICE_WIN_PROBABILITY ? pool : 0 );
+			// moneyB = moneyB + ( outcome <= ALICE_WIN_PROBABILITY ? 0 	: pool );
 
-		/*
+			if( moneyA < 0 || moneyB < 0 )
+			{
+				puts( "Invalid money." );
+				exit( EXIT_FAILURE );
+			}
+
+		
 			// Display round results
-			printf( "Round %i (%i<%i):\n"
-					"    Alice: " BOLD F_GREEN "$%i\n" RESET
-					"    Bob:   " BOLD F_GREEN "$%i\n" RESET
-					"    Pool:  " BOLD F_GREEN "$%i\n" RESET
-					"\n"
-					"    Results:\n"
-					"        Outcome: %f\n"
-					"        Alice %s%s" RESET "\n"
-					"        Alice: " BOLD F_GREEN "$%i\n" RESET
-					"        Bob:   " BOLD F_GREEN "$%i\n" RESET,
-					round, i, NUM_GAMES, moneyA_start, moneyB_start, pool, outcome, ( outcome <= ALICE_WIN_PROBABILITY ? F_GREEN : F_RED ), ( outcome <= ALICE_WIN_PROBABILITY ? "wins" : "loses" ), moneyA, moneyB );
-		*/
+			// printf( "Round %i (%i<%i):\n"
+			// 		"    Alice: " BOLD F_GREEN "$%i\n" RESET
+			// 		"    Bob:   " BOLD F_GREEN "$%i\n" RESET
+			// 		"    Pool:  " BOLD F_GREEN "$%i\n" RESET
+			// 		"\n"
+			// 		"    Results:\n"
+			// 		"        Outcome: %f\n"
+			// 		"        Alice %s%s" RESET "\n"
+			// 		"        Alice: " BOLD F_GREEN "$%i\n" RESET
+			// 		"        Bob:   " BOLD F_GREEN "$%i\n" RESET,
+			// 		round, i, NUM_GAMES, moneyA_start, moneyB_start, pool, outcome, ( outcome <= ALICE_WIN_PROBABILITY ? F_GREEN : F_RED ), ( outcome <= ALICE_WIN_PROBABILITY ? "wins" : "loses" ), moneyA, moneyB );
+		
 		}
 
 		averageRounds += round;
@@ -125,15 +167,27 @@ int main()
 			aliceWin++;
 		else
 			bobWin++;
+
+		if( ( i + 1 ) % DELTA == 0 )
+		{
+			// Display current wins for each player
+			printf( "Game: % 10i    Rounds: % 10i    %sAlice" RESET ": % 10i (% 8.4f%%)    %sBob" RESET ": % 10i( % 8.4f%%)         \r",
+					i + 1,
+					round,
+					aliceWin < bobWin ? F_RED : F_GREEN, 
+					aliceWin, 100 * (float) aliceWin / ( aliceWin + bobWin ),
+					bobWin < aliceWin ? F_RED : F_GREEN,
+					bobWin, 100 * (float) bobWin / ( aliceWin + bobWin) );
+		}
 	}
 
 	averageRounds /= NUM_GAMES;
 
-	printf( "Average number of rounds needed: %.3f.\n"
+	printf( "%110sAverage number of rounds needed: %.3f.\n"
 			"Results:\n"
 			"    " BOLD "%sAlice" RESET ":  %i (%.4f%%)\n"
 			"    " BOLD "%sBob" RESET ":    %i (%.4f%%)\n",
-			averageRounds, 
+			"\n", averageRounds, 
 			aliceWin < bobWin ? F_RED : F_GREEN,
 			aliceWin, 100 * (float) aliceWin / ( aliceWin + bobWin ), 
 			bobWin < aliceWin ? F_RED : F_GREEN,
