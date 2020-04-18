@@ -8,11 +8,11 @@
 
 
 // Define starting parameters of simulation
-#define ALICE_STARTING 			15		// Starting money for Alice
-#define BOB_STARTING			15		// Starting money for Bob
+#define ALICE_STARTING 			5		// Starting money for Alice
+#define BOB_STARTING			5		// Starting money for Bob
 #define ALICE_WIN_PROBABILITY 	0.5		// Probability that Alice wins a draw
 #define BET_AMOUNT				1 		// Amount of money each person bets at each round
-#define NUM_GAMES 				100000000	// Number of games to play until a player loses
+#define NUM_GAMES 				1000000	// Number of games to play until a player loses
 
 
 // Define simulation parameters
@@ -32,7 +32,7 @@ int main()
 			"    Alice Starting:        $%i\n"
 			"    Bob Starting:          $%i\n"
 			"    Alice Win Probability: %0.2f%%\n"
-			"    Bet Amount:            $%i\n"
+			"    Starting Bet Amount:   $%i\n"
 			"    Number of Games:       %i\n\n", 
 			ALICE_STARTING, BOB_STARTING, 100 * ALICE_WIN_PROBABILITY, BET_AMOUNT, NUM_GAMES );
 
@@ -67,11 +67,12 @@ int main()
 	int bobWin = 0,   bobLose = 0;
 
 	// Track average money remaining
-
+	FILE * fp = fopen( "results.dat", "w" );
 
 	int i;
 	for( i = 0; i < NUM_GAMES; i++ )
 	{
+		// Set up starting money for each player
 		moneyA = ALICE_STARTING;
 		moneyB = BOB_STARTING;
 
@@ -105,10 +106,23 @@ int main()
 
 			// Calculate bet amount for both players
 			betAmount = 
+				// Double after last
+			// ( aliceWonLastBet ? previousBetAmount * 2 : previousBetAmount );
+
 				// Standard bet amount
 			BET_AMOUNT;
-				// Incrementing bet amount
+				
+				// Bet maximum
+			// ( moneyA < moneyB ? moneyA : moneyB );
+
+				// Increase bet when losing, decrease after winning
+			// ( aliceWonLastBet ? ( previousBetAmount > 1 ? previousBetAmount - 1 : 1 ) : previousBetAmount + 1 );
+
+				// Incrementing bet amount, restart after loss
 			// ( aliceWonLastBet ? previousBetAmount + 1 : BET_AMOUNT );
+
+				// Random bet
+			// (int)gsl_ran_flat( r, 1, moneyA < moneyB ? moneyA : moneyB );
 
 			// Make sure bet amount isn't more than lowest player's bankroll
 			if( moneyA < betAmount || moneyB < betAmount )
@@ -128,46 +142,28 @@ int main()
 			// Give money to the winner
 			if( outcome <= ALICE_WIN_PROBABILITY )
 			{
+				// Alice Wins
 				aliceWonLastBet = 1;
 				moneyA = moneyA + pool;
 			}
 			else
 			{
+				// Bob wins
 				aliceWonLastBet = 0;
 				moneyB = moneyB + pool;
 			}
-			// moneyA = moneyA + ( outcome <= ALICE_WIN_PROBABILITY ? pool : 0 );
-			// moneyB = moneyB + ( outcome <= ALICE_WIN_PROBABILITY ? 0 	: pool );
-
-			if( moneyA < 0 || moneyB < 0 )
-			{
-				puts( "Invalid money." );
-				exit( EXIT_FAILURE );
-			}
-
-		
-			// Display round results
-			// printf( "Round %i (%i<%i):\n"
-			// 		"    Alice: " BOLD F_GREEN "$%i\n" RESET
-			// 		"    Bob:   " BOLD F_GREEN "$%i\n" RESET
-			// 		"    Pool:  " BOLD F_GREEN "$%i\n" RESET
-			// 		"\n"
-			// 		"    Results:\n"
-			// 		"        Outcome: %f\n"
-			// 		"        Alice %s%s" RESET "\n"
-			// 		"        Alice: " BOLD F_GREEN "$%i\n" RESET
-			// 		"        Bob:   " BOLD F_GREEN "$%i\n" RESET,
-			// 		round, i, NUM_GAMES, moneyA_start, moneyB_start, pool, outcome, ( outcome <= ALICE_WIN_PROBABILITY ? F_GREEN : F_RED ), ( outcome <= ALICE_WIN_PROBABILITY ? "wins" : "loses" ), moneyA, moneyB );
-		
 		}
 
+		// Increment the total number of rounds played so far
 		averageRounds += round;
 
+		// Increment the number of wins for the winning player
 		if( moneyA )
 			aliceWin++;
 		else
 			bobWin++;
 
+		// Display current results. Only update every DELTA games to improve performance
 		if( ( i + 1 ) % DELTA == 0 )
 		{
 			// Display current wins for each player
@@ -179,10 +175,17 @@ int main()
 					bobWin < aliceWin ? F_RED : F_GREEN,
 					bobWin, 100 * (float) bobWin / ( aliceWin + bobWin) );
 		}
+
+		// Save current round information:  Game Number 	Number of Rounds		Alice Win Count		Bob Win Count
+		fprintf( fp, "%i %i %i %i\n", 		( i + 1 ), 		round, 					aliceWin, 			bobWin );
 	}
 
+	fclose( fp );
+
+	// Calculate average number of rounds by dividing sum by the number of games
 	averageRounds /= NUM_GAMES;
 
+	// Display the results of the simulation
 	printf( "%110sAverage number of rounds needed: %.3f.\n"
 			"Results:\n"
 			"    " BOLD "%sAlice" RESET ":  %i (%.4f%%)\n"
@@ -192,4 +195,6 @@ int main()
 			aliceWin, 100 * (float) aliceWin / ( aliceWin + bobWin ), 
 			bobWin < aliceWin ? F_RED : F_GREEN,
 			bobWin, 100 * (float) bobWin / ( bobWin + aliceWin ) );
+
+	return 0;
 } 
